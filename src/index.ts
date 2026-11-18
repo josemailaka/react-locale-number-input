@@ -1,10 +1,19 @@
 export { NumberInput, NumberInput as default } from './NumberInput';
+export { useNumberInput } from './useNumberInput';
+export type {
+  ClearButtonProps,
+  NumberInputElementProps,
+  SpinButtonProps,
+  UseNumberInputResult,
+} from './useNumberInput';
 
 export type {
   IconRenderer,
   IconRenderProps,
   NumberInputFormat,
+  NumberInputHandle,
   NumberInputProps,
+  UseNumberInputProps,
   NumericLike,
   SpinDirection,
   StepConfig,

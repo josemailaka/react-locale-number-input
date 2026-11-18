@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.0
+
+### New
+
+- **`useNumberInput` hook**: the whole behaviour of the component, without markup, for custom designs
+  or design systems. It returns `inputProps`, `incrementProps`, `decrementProps`, `clearButtonProps`,
+  `hiddenInputProps`, the current value and texts, and the imperative `api`.
+- `clear()` method on the ref.
+- New exported types: `NumberInputHandle`, `UseNumberInputProps`, `UseNumberInputResult`.
+
+### Changed (why this is a major version)
+
+- `NumberInput` is now a function component (hooks + `forwardRef`) instead of a class component.
+  It is ready for the React Compiler, and its behaviour is unchanged (the 1.x test suite passes as is).
+- The ref is now a `NumberInputHandle` object instead of the class instance. Every public method is
+  still there (`focus`, `blur`, `getValue`, `getNumericValue`, `getInput`, `input`, `step`, `stepTo`,
+  `startSpin`, `stopSpin`, `isFocused`, `isSpinning`), and `useRef<NumberInput>(null)` still compiles.
+  **Breaking only** for code that read the instance internals (`ref.current.state`, `ref.current.props`)
+  or used `instanceof NumberInput`.
+
 ## 1.1.0
 
 - New `groupWhileEditing` prop (default `true`): the thousands separators are shown while typing

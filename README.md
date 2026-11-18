@@ -11,6 +11,7 @@ Locale-aware number input for React, written in TypeScript.
 - Clear button, Escape to undo, Enter to commit
 - Accessible (`role="spinbutton"` and the `aria-value*` attributes), right-to-left support, 11 themes
 - Pasted text is parsed (`$ 1,234.50` → `1234.5`) and a hidden input keeps the raw value for HTML forms
+- Built with hooks: use the `NumberInput` component, or the headless `useNumberInput` hook with your own markup
 - Works with React 17, 18 and 19, ships ESM and CJS builds plus TypeScript types, and is marked `"use client"` for Next.js
 
 ## Installation
@@ -145,8 +146,48 @@ ref.current.step(1);                     // one step up
 ref.current.step(-1, { step: 0.1 });     // custom step
 ref.current.startSpin(1);                // spins until stopSpin()
 ref.current.stopSpin();
+ref.current.clear();
 ref.current.getInput();                  // HTMLInputElement
 ```
+
+`NumberInput` is a function component. Its ref type is `NumberInputHandle`, also exported under the
+name `NumberInput`, so `useRef<NumberInput>(null)` works.
+
+## Headless hook: `useNumberInput`
+
+To use your own markup or design system, `useNumberInput` gives you the same behaviour without any
+markup: parsing, grouping while typing, stepping, spinning, clearing and the ARIA attributes.
+
+```tsx
+import { useNumberInput } from 'react-locale-number-input';
+
+function PriceField() {
+  const n = useNumberInput({ locale: 'fr-FR', format: 'currency', defaultValue: 10, minValue: 0 });
+
+  return (
+    <div className="my-field">
+      <button type="button" {...n.decrementProps}>−</button>
+      <input {...n.inputProps} aria-label="Price" />
+      <button type="button" {...n.incrementProps}>+</button>
+      <button {...n.clearButtonProps} aria-label="Clear">×</button>
+      {n.hiddenInputProps && <input {...n.hiddenInputProps} />}
+    </div>
+  );
+}
+```
+
+It accepts the behaviour props of the table above (`value`, `onChange`, `locale`, `format`, `precision`,
+`minValue`, `step`…). It returns:
+
+| Field | Description |
+| --- | --- |
+| `inputProps` | Spread on your `<input>` (value, handlers, `role="spinbutton"`, `aria-value*`, `ref`) |
+| `incrementProps` / `decrementProps` | Spread on your spin buttons (click = one step, hold = spin) |
+| `clearButtonProps` | Spread on your clear `<button>` (`disabled` when empty) |
+| `hiddenInputProps` | Hidden input with the raw value, when `name` is given |
+| `value`, `displayValue`, `text`, `formattedText` | Current value and texts |
+| `focused`, `spinDirection`, `hasValue`, `min`, `max` | State, for styling |
+| `api` | The same imperative API as the ref (stable object) |
 
 ## Helpers
 

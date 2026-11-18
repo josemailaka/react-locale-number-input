@@ -1,10 +1,24 @@
 import { StrictMode, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { NumberInput } from '../src';
+import { NumberInput, useNumberInput } from '../src';
 import '../src/style/index.scss';
 import '../src/style/theme/default-dark/index.scss';
 import '../src/style/theme/blue-light/index.scss';
+
+function HookDemo() {
+  const n = useNumberInput({ locale: 'fr-FR', format: 'currency', precision: 2, minValue: 0, defaultValue: 10 });
+  const button = { width: 32, height: 32, fontSize: 18, cursor: 'pointer' };
+  return (
+    <div className="row">
+      <button type="button" style={button} {...n.decrementProps}>−</button>
+      <input {...n.inputProps} aria-label="Prix" style={{ height: 28, fontSize: 16, textAlign: 'right' }} />
+      <button type="button" style={button} {...n.incrementProps}>+</button>
+      <button {...n.clearButtonProps} aria-label="Effacer">effacer</button>
+      <code>value = {String(n.value)}</code>
+    </div>
+  );
+}
 
 function App() {
   const [value, setValue] = useState<number | null>(56);
@@ -122,6 +136,11 @@ function App() {
           </div>
           <NumberInput rtl locale="ar-EG" defaultValue={12} />
         </div>
+      </section>
+
+      <section>
+        <h2>Headless hook (custom markup)</h2>
+        <HookDemo />
       </section>
 
       <section>

@@ -30,7 +30,7 @@ export interface StepFnInfo {
 
 /**
  * Custom stepping logic. Receives the current value (or `null` when empty)
- * and returns the next value (it is then rounded / clamped by the component).
+ * and returns the next value (it is then rounded / clamped).
  */
 export type StepFn = (
   value: number | null,
@@ -46,7 +46,33 @@ export interface IconRenderProps {
 
 export type IconRenderer = (props: IconRenderProps) => ReactNode | undefined;
 
-export interface NumberInputProps {
+/** Imperative API, available through `ref` and `useNumberInput().api`. */
+export interface NumberInputHandle {
+  /** The inner text input */
+  readonly input: HTMLInputElement | null;
+  getInput(): HTMLInputElement | null;
+  /** Current numeric value (`null` when empty). */
+  getValue(): number | null;
+  /** Alias of `getValue`. */
+  getNumericValue(): number | null;
+  focus(): void;
+  blur(): void;
+  isFocused(): boolean;
+  isSpinning(): boolean;
+  /** One step up (`1`) or down (`-1`), calls `onChange`. */
+  step(direction: SpinDirection, config?: StepConfig): void;
+  /** Alias of `step`. */
+  stepTo(direction: SpinDirection, config?: StepConfig): void;
+  /** Steps every `stepDelay` ms until `stopSpin()`. */
+  startSpin(direction: SpinDirection, config?: StepConfig): void;
+  /** Stops spinning and commits the reached value. */
+  stopSpin(): void;
+  /** Same as the clear button. */
+  clear(): void;
+}
+
+/** Behaviour props, shared by `useNumberInput` and `NumberInput`. */
+export interface UseNumberInputProps {
   // ---------------------------------------------------------------- value
   /** Controlled value. Use `null` for an empty field. */
   value?: NumericLike;
@@ -120,6 +146,27 @@ export interface NumberInputProps {
   /** Minimum time (ms) between two `onChange` calls while spinning. Default `80`. */
   triggerChangeOnSpinDelay?: number;
 
+  // ------------------------------------------------------------------ state
+  disabled?: boolean;
+  readOnly?: boolean;
+  /** Selects the whole text when the field gets the focus. Default `false`. */
+  selectAllOnFocus?: boolean;
+  /**
+   * Form field name. A hidden input holding the raw numeric value
+   * (e.g. "1234.5") is rendered so that native forms submit a parsable value.
+   */
+  name?: string;
+
+  // ----------------------------------------------------------------- events
+  onFocus?: (event: FocusEvent<HTMLInputElement>) => void;
+  onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  /** Called after the value was cleared with the clear button / `clear()`. */
+  onClear?: () => void;
+}
+
+/** Props of the `NumberInput` component. */
+export interface NumberInputProps extends UseNumberInputProps {
   // ------------------------------------------------------------------ tools
   /** Shows the up / down spinner. Default `true`. */
   enableSpinnerTools?: boolean;
@@ -131,8 +178,6 @@ export interface NumberInputProps {
   toolPosition?: 'start' | 'end';
   /** Accessible label of the clear button. Default "Clear value". */
   clearButtonLabel?: string;
-  /** Called after the clear button was used. */
-  onClear?: () => void;
 
   arrowSize?: number | [number, number];
   arrowColor?: string;
@@ -154,24 +199,12 @@ export interface NumberInputProps {
   className?: string;
   style?: CSSProperties;
   rtl?: boolean;
-  disabled?: boolean;
-  readOnly?: boolean;
   placeholder?: string;
   /** `size` attribute of the inner input. */
   size?: number;
   id?: string;
   autoFocus?: boolean;
   tabIndex?: number;
-  /** Selects the whole text when the field gets the focus. Default `false`. */
-  selectAllOnFocus?: boolean;
-  /**
-   * Form field name. A hidden input holding the raw numeric value
-   * (e.g. "1234.5") is rendered so that native forms submit a parsable value.
-   */
-  name?: string;
-  onFocus?: (event: FocusEvent<HTMLInputElement>) => void;
-  onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
-  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
   /** Props for the wrapping div. */
   wrapperProps?: HTMLAttributes<HTMLDivElement>;
   /** Props for the inner text input. */
