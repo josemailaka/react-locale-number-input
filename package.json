@@ -1,6 +1,6 @@
 {
   "name": "react-locale-number-input",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Locale-aware React number input with spinner, clear button, currency / percentage formatting, min / max, precision and keyboard + wheel stepping. Written in TypeScript.",
   "keywords": [
     "react",
