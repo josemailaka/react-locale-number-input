@@ -1,0 +1,102 @@
+{
+  "name": "react-locale-number-input",
+  "version": "1.0.0",
+  "description": "Locale-aware React number input with spinner, clear button, currency / percentage formatting, min / max, precision and keyboard + wheel stepping. Written in TypeScript.",
+  "keywords": [
+    "react",
+    "number",
+    "numeric",
+    "input",
+    "number-input",
+    "spinner",
+    "currency",
+    "locale",
+    "intl",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "Rakotonirina José <rakotonirinamailaka@gmain.com>",
+  "homepage": "https://github.com/josemailaka/react-locale-number-input#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/josemailaka/react-locale-number-input.git"
+  },
+  "bugs": {
+    "url": "https://github.com/josemailaka/react-locale-number-input/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./index.css": "./dist/index.css",
+    "./style.css": "./dist/index.css",
+    "./themes/*": "./dist/themes/*",
+    "./scss/*": "./dist/scss/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite --config demo/vite.config.ts",
+    "clean": "node scripts/clean.mjs",
+    "build": "npm run clean && npm run build:js && npm run build:css",
+    "build:js": "tsup",
+    "build:css": "node scripts/build-css.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check:package": "publint && attw --pack . --profile node16 --entrypoints .",
+    "verify": "npm run typecheck && npm test && npm run build && npm run check:package",
+    "prepublishOnly": "npm run typecheck && npm test",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.12",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitest/coverage-v8": "^5.1.1",
+    "jsdom": "^31.0.1",
+    "publint": "^0.3.25",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sass": "^1.108.2",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
