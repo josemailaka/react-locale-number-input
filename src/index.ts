@@ -16,12 +16,15 @@ export {
   addExact,
   countDecimals,
   formatNumber,
+  groupIntegerDigits,
+  groupNumberText,
   parseNumber,
   roundTo,
   sanitizeNumberText,
 } from './utils/number';
 export type {
   FormatNumberOptions,
+  GroupTextOptions,
   SanitizeOptions,
   SanitizeResult,
 } from './utils/number';

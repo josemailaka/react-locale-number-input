@@ -2,6 +2,7 @@
 
 Locale-aware number input for React, written in TypeScript.
 
+- Thousands separators shown while typing, with natural caret and Backspace handling
 - Formats per locale with `Intl`: `1,234.5` (en-US), `1.234,5` (de-DE), `1 234,5` (fr-FR)…
 - Accepts both `.` and `,` as the decimal key and converts it to the locale's delimiter
 - Currency (auto-detected from the locale or given as an ISO code), percentage, prefix and suffix
@@ -81,6 +82,7 @@ so you can override any of them before importing the sources.
 | `allowEmpty` | `boolean` | `true` | When `false`, an empty field becomes `valueOnEmpty` (or 0, clamped) on blur |
 | `valueOnEmpty` | `number \| string` | – | |
 | `numbersOnly` | `boolean` | `true` | Filter non-numeric characters while typing |
+| `groupWhileEditing` | `boolean` | `true` | Show the thousands separators while typing (`1,234,567`) |
 | `format` | `"number" \| "currency" \| "percentage"` | `"number"` | |
 | `currency` | `string` | currency of the locale's region | ISO 4217 code (`"EUR"`, `"USD"`…) |
 | `currencySymbol` | `string` | – | Overrides the symbol |
@@ -152,6 +154,7 @@ ref.current.getInput();                  // HTMLInputElement
 import {
   parseNumber,           // parseNumber('1.234,5', 'de-DE') === 1234.5
   formatNumber,          // formatNumber(1234.5, { locale: 'fr-FR', precision: 2 }) === '1 234,50'
+  groupIntegerDigits,    // groupIntegerDigits('1234567', 'en-IN') === '12,34,567'
   getDecimalDelimiter,   // getDecimalDelimiter('fr-FR') === ','
   getDigitGroupDelimiter,
   getCurrencyInfo,       // getCurrencyInfo('en-US') -> { symbol: '$', position: 'start' }

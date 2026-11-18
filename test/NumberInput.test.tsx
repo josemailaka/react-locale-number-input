@@ -26,13 +26,19 @@ function Controlled(props: NumberInputProps & { initial?: number | null }) {
 }
 
 describe('display', () => {
-  it('formats the value when not focused and shows the raw value when focused', async () => {
-    const { input, user } = setup({ defaultValue: 1234.5 });
+  it('shows prefix / suffix only when not focused', async () => {
+    const { input, user } = setup({ defaultValue: 1234.5, suffix: 'kg' });
+    expect(input).toHaveValue('1,234.5 kg');
+    await user.click(input);
     expect(input).toHaveValue('1,234.5');
+    await user.tab();
+    expect(input).toHaveValue('1,234.5 kg');
+  });
+
+  it('shows the raw value when focused with groupWhileEditing=false', async () => {
+    const { input, user } = setup({ defaultValue: 1234.5, groupWhileEditing: false });
     await user.click(input);
     expect(input).toHaveValue('1234.5');
-    await user.tab();
-    expect(input).toHaveValue('1,234.5');
   });
 
   it('accepts string values', () => {
@@ -107,6 +113,48 @@ describe('typing', () => {
     expect(onChange).toHaveBeenLastCalledWith(7.25);
     await user.tab();
     expect(input).toHaveValue('7,25');
+  });
+
+  it('groups digits while typing', async () => {
+    const { input, user, onChange } = setup();
+    await user.type(input, '1234567.89');
+    expect(input).toHaveValue('1,234,567.89');
+    expect(onChange).toHaveBeenLastCalledWith(1234567.89);
+  });
+
+  it('groups digits while typing for fr-FR and de-DE', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<NumberInput locale="fr-FR" />);
+    await user.type(getInput(), '12345,6');
+    expect(getInput()).toHaveValue('12 345,6');
+    unmount();
+    render(<NumberInput locale="de-DE" />);
+    await user.type(getInput(), '12345,6');
+    expect(getInput()).toHaveValue('12.345,6');
+  });
+
+  it('keeps the caret in place when typing in the middle', async () => {
+    const { input, user } = setup({ defaultValue: 1234 });
+    await user.click(input);
+    input.setSelectionRange(1, 1); // "1|,234"
+    await user.keyboard('9');
+    expect(input).toHaveValue('19,234');
+    expect(input.selectionStart).toBe(2);
+  });
+
+  it('Backspace after / Delete before a group delimiter removes the digit', async () => {
+    const { input, user, onChange } = setup({ defaultValue: 1234 });
+    await user.click(input);
+    input.setSelectionRange(2, 2); // "1,|234"
+    await user.keyboard('{Backspace}');
+    expect(input).toHaveValue('234');
+    expect(onChange).toHaveBeenLastCalledWith(234);
+
+    await user.clear(input);
+    await user.type(input, '1234');
+    input.setSelectionRange(1, 1); // "1|,234"
+    await user.keyboard('{Delete}');
+    expect(input).toHaveValue('134');
   });
 
   it('allows a single decimal delimiter', async () => {

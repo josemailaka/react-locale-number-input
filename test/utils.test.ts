@@ -7,6 +7,8 @@ import {
   getCurrencyInfo,
   getDecimalDelimiter,
   getDigitGroupDelimiter,
+  groupIntegerDigits,
+  groupNumberText,
   parseNumber,
   roundTo,
   sanitizeNumberText,
@@ -112,6 +114,24 @@ describe('formatNumber', () => {
   it('can disable grouping and always uses latin digits / ascii minus', () => {
     expect(formatNumber(-1234.5, { locale: 'ar-EG', useGrouping: false })).toMatch(/^-1234.5$/);
     expect(formatNumber(-5, { locale: 'sv-SE' })).toBe('-5');
+  });
+});
+
+describe('grouping', () => {
+  it('groups integer digits per locale', () => {
+    expect(groupIntegerDigits('1234567', 'en-US')).toBe('1,234,567');
+    expect(groupIntegerDigits('1234567', 'en-IN')).toBe('12,34,567');
+    expect(groupIntegerDigits('1234', 'es-ES')).toBe('1234'); // es groups from 5 digits
+    expect(groupIntegerDigits('12345678901234567890', 'en-US')).toBe('12,345,678,901,234,567,890');
+    expect(groupIntegerDigits('', 'en-US')).toBe('');
+  });
+
+  it('groups a text and maps the caret', () => {
+    const opts = { decimalDelimiter: '.', locale: 'en-US' };
+    expect(groupNumberText('-1234.5', opts)).toEqual({ text: '-1,234.5', caret: 8 });
+    expect(groupNumberText('1234', opts, 1)).toEqual({ text: '1,234', caret: 1 });
+    expect(groupNumberText('1234', opts, 2)).toEqual({ text: '1,234', caret: 3 });
+    expect(groupNumberText('-', opts, 1)).toEqual({ text: '-', caret: 1 });
   });
 });
 

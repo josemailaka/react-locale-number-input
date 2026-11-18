@@ -23,6 +23,7 @@ import { getSeparators, normalizeLocale } from './utils/locale';
 import {
   addExact,
   formatNumber,
+  groupNumberText,
   parseNumber,
   roundTo,
   sanitizeNumberText,
@@ -57,6 +58,7 @@ const DEFAULTS = {
   clearButtonSize: 10,
   clearButtonLabel: 'Clear value',
   selectAllOnFocus: false,
+  groupWhileEditing: true,
 } as const satisfies Partial<NumberInputProps>;
 
 type ResolvedProps = Omit<NumberInputProps, keyof typeof DEFAULTS> &
@@ -398,9 +400,22 @@ export class NumberInput extends Component<NumberInputProps, NumberInputState> {
   private applyText(raw: string, caret: number) {
     const p = this.resolve();
     const result = this.sanitize(raw, caret, p);
-    const text = p.numbersOnly ? result.text : raw;
+    let text = raw;
+    let nextCaret = caret;
+    if (p.numbersOnly) {
+      ({ text, caret: nextCaret } = p.groupWhileEditing
+        ? groupNumberText(
+            result.text,
+            {
+              decimalDelimiter: getSeparators(p.resolvedLocale).decimal,
+              locale: p.resolvedLocale,
+            },
+            result.caret
+          )
+        : result);
+    }
 
-    this.pendingCaret = p.numbersOnly ? result.caret : caret;
+    this.pendingCaret = nextCaret;
     this.setState({ draft: text });
 
     const { value } = result;
@@ -539,6 +554,10 @@ export class NumberInput extends Component<NumberInputProps, NumberInputState> {
           this.emitValue(this.valueOnFocus);
         }
         return;
+      case 'Backspace':
+      case 'Delete':
+        this.handleDeleteOverGroupDelimiter(event, p);
+        return;
     }
 
     if (
@@ -587,6 +606,39 @@ export class NumberInput extends Component<NumberInputProps, NumberInputState> {
       }
     }
   };
+
+  /**
+   * With grouping while editing, Backspace right after a group delimiter
+   * (or Delete right before one) removes the digit behind the delimiter,
+   * otherwise nothing would happen (the delimiter is re-inserted).
+   */
+  private handleDeleteOverGroupDelimiter(
+    event: KeyboardEvent<HTMLInputElement>,
+    p: ResolvedProps
+  ) {
+    if (!p.numbersOnly || !p.groupWhileEditing) {
+      return;
+    }
+    const input = event.currentTarget;
+    const text = input.value;
+    const start = input.selectionStart;
+    if (start == null || start !== input.selectionEnd) {
+      return;
+    }
+    const { group } = getSeparators(p.resolvedLocale);
+
+    if (event.key === 'Backspace' && start >= 2 && text[start - 1] === group) {
+      event.preventDefault();
+      this.applyText(text.slice(0, start - 2) + text.slice(start - 1), start - 2);
+    } else if (
+      event.key === 'Delete' &&
+      text[start] === group &&
+      start + 1 < text.length
+    ) {
+      event.preventDefault();
+      this.applyText(text.slice(0, start + 1) + text.slice(start + 2), start + 1);
+    }
+  }
 
   private handleWheel = (event: WheelEvent) => {
     const p = this.resolve();
@@ -705,12 +757,12 @@ export class NumberInput extends Component<NumberInputProps, NumberInputState> {
     return join(prefix, text, suffix);
   }
 
-  /** Text shown while editing: no grouping, no prefix / suffix. */
+  /** Text shown while editing: no prefix / suffix, grouping if `groupWhileEditing`. */
   private formatEdit(value: number, p: ResolvedProps): string {
     return formatNumber(value, {
       locale: p.resolvedLocale,
       precision: p.precision,
-      useGrouping: false,
+      useGrouping: p.numbersOnly && p.groupWhileEditing,
     });
   }
 

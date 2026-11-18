@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+- New `groupWhileEditing` prop (default `true`): the thousands separators are shown while typing
+  (`1,234,567`). The caret stays in place, and Backspace / Delete next to a separator remove the digit.
+  Set it to `false` to get the 1.0 behaviour (raw digits while editing).
+- Grouping follows the locale conventions (`useGrouping: "auto"`): es-ES no longer groups 4 digit numbers,
+  en-IN uses lakh grouping (`12,34,567`).
+- New helpers: `groupIntegerDigits`, `groupNumberText`.
+- The JavaScript build is minified: 20 KB instead of 34 KB (7.5 KB gzipped).
+
 ## 1.0.0
 
 

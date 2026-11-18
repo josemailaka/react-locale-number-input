@@ -72,6 +72,11 @@ export interface NumberInputProps {
   precision?: number;
   /** Filters every non numeric character while typing. Default `true`. */
   numbersOnly?: boolean;
+  /**
+   * Shows the digit group delimiters while typing ("1,234,567" instead of
+   * "1234567"). Default `true`.
+   */
+  groupWhileEditing?: boolean;
 
   // ------------------------------------------------------------- formatting
   /** BCP 47 locale, e.g. "fr-FR". Defaults to the browser language. */

@@ -6,6 +6,7 @@ export default defineConfig({
   // Generates dist/index.d.ts (ESM) and dist/index.d.cts (CommonJS).
   dts: { compilerOptions: { types: [] } },
   sourcemap: true,
+  minify: true,
   clean: false,
   target: 'es2020',
   platform: 'browser',

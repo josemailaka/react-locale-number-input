@@ -174,6 +174,72 @@ export function sanitizeNumberText(
 }
 
 /**
+ * Inserts the locale digit group delimiters in a string of digits:
+ *   groupIntegerDigits('1234567', 'en-US') // "1,234,567"
+ *   groupIntegerDigits('1234567', 'en-IN') // "12,34,567"
+ */
+export function groupIntegerDigits(digits: string, locale?: string): string {
+  if (!digits) {
+    return '';
+  }
+  try {
+    // strings are formatted exactly by modern engines (Intl.NumberFormat v3)
+    const grouped = getNumberFormat(locale, { useGrouping: true, maximumFractionDigits: 0 })
+      .formatToParts(digits as unknown as number)
+      .filter(part => part.type === 'integer' || part.type === 'group')
+      .map(part => part.value)
+      .join('');
+    if (grouped.replace(/\D/g, '') === digits) {
+      return grouped;
+    }
+  } catch {
+    // fall back below
+  }
+  // older engines lose precision above 15 digits: group by 3
+  const group = getSeparators(locale).group;
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+}
+
+export interface GroupTextOptions {
+  decimalDelimiter: string;
+  locale?: string;
+}
+
+/**
+ * Adds digit group delimiters to a sanitized text ("-1234.5" -> "-1,234.5")
+ * and moves the caret accordingly.
+ */
+export function groupNumberText(
+  text: string,
+  { decimalDelimiter, locale }: GroupTextOptions,
+  caret: number = text.length
+): { text: string; caret: number } {
+  const sign = text.startsWith('-') ? '-' : '';
+  const body = text.slice(sign.length);
+  const decimalIndex = body.indexOf(decimalDelimiter);
+  const intPart = decimalIndex === -1 ? body : body.slice(0, decimalIndex);
+  const rest = decimalIndex === -1 ? '' : body.slice(decimalIndex);
+  const grouped = groupIntegerDigits(intPart, locale);
+  const out = sign + grouped + rest;
+
+  // walk the output, skipping the inserted delimiters, until `caret`
+  // characters of the original text have been passed
+  const groupStart = sign.length;
+  const groupEnd = sign.length + grouped.length;
+  let remaining = caret;
+  let position = 0;
+  while (position < out.length && remaining > 0) {
+    const inserted =
+      position >= groupStart && position < groupEnd && !DIGIT.test(out[position]);
+    if (!inserted) {
+      remaining--;
+    }
+    position++;
+  }
+  return { text: out, caret: position };
+}
+
+/**
  * Parses a (possibly formatted) number string for the given locale.
  *
  *   parseNumber('1,234.5', 'en-US')  // 1234.5

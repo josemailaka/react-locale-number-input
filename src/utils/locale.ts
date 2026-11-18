@@ -43,6 +43,11 @@ export function getNumberFormat(
   let formatter = formatterCache.get(key);
   if (!formatter) {
     const fullOptions = { numberingSystem: 'latn', ...options } as Intl.NumberFormatOptions;
+    if (options.useGrouping === true) {
+      // `true` means "always" in recent engines; "auto" follows the locale
+      // conventions (e.g. es-ES does not group 4 digit numbers)
+      (fullOptions as { useGrouping: unknown }).useGrouping = 'auto';
+    }
     try {
       formatter = new Intl.NumberFormat(locale, fullOptions);
     } catch {
