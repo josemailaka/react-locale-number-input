@@ -6,6 +6,46 @@ import '../src/style/index.scss';
 import '../src/style/theme/default-dark/index.scss';
 import '../src/style/theme/blue-light/index.scss';
 
+function AmountDemo() {
+  const [amount, setAmount] = useState<string | null>('1500.00');
+  const [error, setError] = useState<string | null>(null);
+  const [rejected, setRejected] = useState('');
+  return (
+    <div className="row">
+      <label>
+        Virement (max 10 000 €), essayez 50000 ou collez « 1,234 »
+        <NumberInput
+          preset="amount"
+          locale="fr-FR"
+          format="currency"
+          currency="EUR"
+          maxValue={10000}
+          required
+          value={amount}
+          onValueChange={d => {
+            setAmount(d.valueAsString);
+            setError(d.error);
+          }}
+          onErrorChange={setError}
+          onPasteRejected={r => setRejected(`collage refusé (${r.reason}) : « ${r.text} »`)}
+          style={{ borderColor: error ? 'crimson' : undefined }}
+        />
+      </label>
+      <code>valueAsString = {String(amount)}</code>
+      <code style={{ color: 'crimson' }}>{error ? `erreur : ${error}` : ''}</code>
+      <code>{rejected}</code>
+      <label>
+        Comptable (négatif)
+        <NumberInput locale="fr-FR" format="currency" currency="EUR" currencySign="accounting" precision={2} defaultValue={-1234.5} />
+      </label>
+      <label>
+        JPY precision=&quot;auto&quot;
+        <NumberInput locale="ja-JP" format="currency" currency="JPY" precision="auto" defaultValue={5000} />
+      </label>
+    </div>
+  );
+}
+
 function HookDemo() {
   const n = useNumberInput({ locale: 'fr-FR', format: 'currency', precision: 2, minValue: 0, defaultValue: 10 });
   const button = { width: 32, height: 32, fontSize: 18, cursor: 'pointer' };
@@ -136,6 +176,11 @@ function App() {
           </div>
           <NumberInput rtl locale="ar-EG" defaultValue={12} />
         </div>
+      </section>
+
+      <section>
+        <h2>Money: preset=&quot;amount&quot;</h2>
+        <AmountDemo />
       </section>
 
       <section>

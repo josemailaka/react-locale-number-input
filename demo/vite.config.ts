@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
+  // GitHub Pages serves the demo under /<repository>/ (set by the pages workflow)
+  base: process.env.DEMO_BASE || '/',
   plugins: [react()],
   css: {
     preprocessorOptions: {

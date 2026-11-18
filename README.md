@@ -2,6 +2,9 @@
 
 Locale-aware number input for React, written in TypeScript.
 
+**[▶ Live demo](https://josemailaka.github.io/react-locale-number-input/)**: try the locales,
+currencies, the `preset="amount"` money field and the headless hook in your browser.
+
 - Thousands separators shown while typing, with natural caret and Backspace handling
 - Formats per locale with `Intl`: `1,234.5` (en-US), `1.234,5` (de-DE), `1 234,5` (fr-FR)…
 - Accepts both `.` and `,` as the decimal key and converts it to the locale's delimiter
@@ -9,6 +12,7 @@ Locale-aware number input for React, written in TypeScript.
 - `minValue` / `maxValue`, `precision`, integers only, positive only, required (non-empty)
 - Spinner arrows (hold to spin), ArrowUp / ArrowDown, Shift for big steps, PageUp / PageDown, mouse wheel
 - Clear button, Escape to undo, Enter to commit
+- Ready for money: exact decimal values (no float errors), validation instead of silent clamping, currency decimals, rounding modes, strict paste, accounting format (`preset="amount"`)
 - Accessible (`role="spinbutton"` and the `aria-value*` attributes), right-to-left support, 11 themes
 - Pasted text is parsed (`$ 1,234.50` → `1234.5`) and a hidden input keeps the raw value for HTML forms
 - Built with hooks: use the `NumberInput` component, or the headless `useNumberInput` hook with your own markup
@@ -72,11 +76,19 @@ so you can override any of them before importing the sources.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `value` | `number \| string \| null` | – | Controlled value (`null` = empty) |
+| `preset` | `"amount"` | – | Safe defaults for money, see [Money and finance](#money-and-finance) |
+| `value` | `number \| string \| null` | – | Controlled value (`null` = empty). A decimal string (`"1234.50"`) keeps big amounts exact |
 | `defaultValue` | `number \| string \| null` | – | Initial value (uncontrolled) |
 | `onChange` | `(value: number \| null) => void` | – | Called with the numeric value |
+| `onValueChange` | `(details) => void` | – | `{ value, valueAsString, formattedValue, error }`: use `valueAsString` for amounts |
+| `onErrorChange` | `(error) => void` | – | `"min" \| "max" \| "required" \| null` |
 | `locale` | `string` | browser language | BCP 47 locale, e.g. `"fr-FR"` |
-| `precision` | `number` | – | Number of decimals: typing is limited to it and the display is padded to it |
+| `precision` | `number \| "auto"` | – | Number of decimals: typing is limited to it and the display is padded to it. `"auto"`: decimals of the currency (EUR 2, JPY 0, KWD 3) |
+| `roundingMode` | `"halfCeil" \| "halfExpand" \| "halfEven" \| "halfFloor" \| "halfTrunc" \| "trunc" \| "expand" \| "ceil" \| "floor"` | `"halfCeil"` | Rounding to `precision` (and to integers). `halfExpand` = commercial, `halfEven` = banker's |
+| `clampBehavior` | `"clamp" \| "validate"` | `"clamp"` | `validate`: out of range values are kept and reported (`error`, `aria-invalid`) instead of being replaced |
+| `pasteMode` | `"lenient" \| "strict"` | `"lenient"` | `strict`: ambiguous (`1,234`), negative or too precise pasted texts are rejected |
+| `onPasteRejected` | `({ text, reason }) => void` | – | `reason`: `"ambiguous" \| "invalid" \| "negative" \| "decimals"` |
+| `required` | `boolean` | `false` | An empty field is an error (`"required"`) |
 | `minValue` / `maxValue` | `number \| string` | – | Bounds, applied on blur / Enter and when stepping |
 | `allowNegative` | `boolean` | `true` | |
 | `allowFloat` | `boolean` | `true` | |
@@ -89,6 +101,7 @@ so you can override any of them before importing the sources.
 | `currencySymbol` | `string` | – | Overrides the symbol |
 | `currencyDisplay` | `"symbol" \| "narrowSymbol" \| "code" \| "name"` | `"symbol"` | |
 | `currencyPosition` | `"start" \| "end"` | as usual for the locale | |
+| `currencySign` | `"standard" \| "accounting"` | `"standard"` | `accounting`: negative amounts in parentheses `(1,234.50 €)` |
 | `prefix` / `suffix` | `string` | – | Shown when the field is not focused |
 | `step` | `number` | `1` | |
 | `shiftStep` | `number` | `10` | Used with Shift and with PageUp / PageDown |
@@ -121,6 +134,42 @@ so you can override any of them before importing the sources.
 | `renderClearIcon`, `renderArrowUpIcon`, `renderArrowDownIcon` | `(props) => ReactNode` | – | Custom icons |
 | `className`, `style`, `rootClassName` | | | |
 
+## Money and finance
+
+`preset="amount"` turns on safe defaults for money:
+
+```tsx
+<NumberInput
+  preset="amount"
+  locale="fr-FR"        // always explicit for money
+  format="currency"
+  currency="EUR"        // always explicit for money
+  maxValue={10000}
+  value={amount}        // decimal string, e.g. "1234.50"
+  onValueChange={({ valueAsString, error }) => {
+    setAmount(valueAsString); // exact: send it to the backend as is
+    setError(error);          // "max" if 50000 was typed: never silently changed
+  }}
+/>
+```
+
+| Risk | What the package does |
+| --- | --- |
+| Binary floats (`0.1 + 0.2`, more than 15 digits) | Values are exact decimal strings internally (BigInt); `valueAsString`, `getValueAsString()` and the hidden form input give the exact value |
+| Amount silently replaced by min / max | `clampBehavior="validate"` keeps what was typed and reports `error` / `aria-invalid` / `--invalid` class |
+| Wrong number of decimals per currency | `precision="auto"`: 2 for EUR, 0 for JPY, 3 for KWD… |
+| Accidental change (wheel, arrows, spinner, `-` key) | Disabled by the preset |
+| Rounding rules | `roundingMode`: `halfExpand` (preset), `halfEven` (banker's), `trunc`… |
+| Pasting `1,234` (1234 or 1.234?) | `pasteMode="strict"` rejects ambiguous texts and calls `onPasteRejected`; `1.234.567,89` and `(1,234.50)` are understood |
+| Negative amounts | `currencySign="accounting"` shows `(1,234.50 €)`, and the `--negative` class is set |
+| Locale of the user's browser | A development warning is shown when `locale` / `currency` are missing |
+
+The preset sets: no spinner, no wheel, no arrow keys, `allowNegative={false}`, `precision="auto"`,
+`clampBehavior="validate"`, `roundingMode="halfExpand"`, `pasteMode="strict"`. Any prop given
+explicitly wins, e.g. `allowNegative` for refunds.
+
+> Always validate amounts again on the server, with decimal arithmetic (`BigDecimal`, `NUMERIC`…).
+
 ## Keyboard
 
 | Key | Action |
@@ -142,6 +191,8 @@ const ref = useRef<NumberInput>(null);
 ref.current.focus();
 ref.current.blur();
 ref.current.getValue();                  // number | null
+ref.current.getValueAsString();          // exact decimal string | null
+ref.current.getError();                  // "min" | "max" | "required" | null
 ref.current.step(1);                     // one step up
 ref.current.step(-1, { step: 0.1 });     // custom step
 ref.current.startSpin(1);                // spins until stopSpin()
@@ -185,7 +236,8 @@ It accepts the behaviour props of the table above (`value`, `onChange`, `locale`
 | `incrementProps` / `decrementProps` | Spread on your spin buttons (click = one step, hold = spin) |
 | `clearButtonProps` | Spread on your clear `<button>` (`disabled` when empty) |
 | `hiddenInputProps` | Hidden input with the raw value, when `name` is given |
-| `value`, `displayValue`, `text`, `formattedText` | Current value and texts |
+| `value`, `valueAsString`, `displayValue`, `text`, `formattedText` | Current value and texts |
+| `error`, `invalid` | Validation error, and whether to show it ("required" only once touched) |
 | `focused`, `spinDirection`, `hasValue`, `min`, `max` | State, for styling |
 | `api` | The same imperative API as the ref (stable object) |
 

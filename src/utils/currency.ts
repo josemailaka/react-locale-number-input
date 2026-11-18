@@ -24,10 +24,14 @@ export function getCurrencyCodeForLocale(locale?: string): string | undefined {
 }
 
 export interface CurrencyInfo {
+  /** ISO 4217 code, e.g. "EUR" */
+  code: string;
   /** Symbol / code / name to display */
   symbol: string;
   /** Where the locale places the currency */
   position: 'start' | 'end';
+  /** Number of minor unit digits: 2 for EUR, 0 for JPY, 3 for KWD */
+  digits: number;
 }
 
 /**
@@ -58,19 +62,22 @@ function computeCurrencyInfo(
     return undefined;
   }
   try {
-    const parts = new Intl.NumberFormat(locale, {
+    const formatter = new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: code,
       currencyDisplay,
-    }).formatToParts(1);
+    });
+    const parts = formatter.formatToParts(1);
     const currencyIndex = parts.findIndex(p => p.type === 'currency');
     const integerIndex = parts.findIndex(p => p.type === 'integer');
     return {
+      code,
       symbol: currencyIndex === -1 ? code : parts[currencyIndex].value,
       position: currencyIndex !== -1 && currencyIndex < integerIndex ? 'start' : 'end',
+      digits: formatter.resolvedOptions().maximumFractionDigits ?? 2,
     };
   } catch {
-    return { symbol: code, position: 'end' };
+    return { code, symbol: code, position: 'end', digits: 2 };
   }
 }
 

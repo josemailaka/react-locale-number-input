@@ -1,4 +1,5 @@
 import { getNumberFormat, getSeparators } from './locale';
+import { normalizeDecimal } from './decimal';
 
 export interface FormatNumberOptions {
   locale?: string;
@@ -43,9 +44,12 @@ export function clampInt(value: number, min: number, max: number): number {
 /**
  * Formats a number for the given locale. Always produces latin digits and an
  * ASCII minus sign so the output can be parsed back with `parseNumber`.
+ *
+ * `value` may be a decimal string ("12345678901234567.89"): modern engines
+ * format it exactly, without going through a binary float.
  */
 export function formatNumber(
-  value: number,
+  value: number | string,
   { locale, precision, useGrouping = true }: FormatNumberOptions = {}
 ): string {
   const fixed = precision == null ? undefined : clampInt(precision, 0, 20);
@@ -54,7 +58,7 @@ export function formatNumber(
     minimumFractionDigits: fixed ?? 0,
     maximumFractionDigits: fixed ?? 20,
   })
-    .format(value)
+    .format(value as number)
     .replace(/−/g, '-')
     // bidi control marks added by some locales (ar, he, fa...)
     .replace(/[؜‎‏]/g, '');
@@ -73,6 +77,8 @@ export interface SanitizeResult {
   text: string;
   /** Parsed numeric value, `null` when the text holds no digit. */
   value: number | null;
+  /** Exact parsed value as a canonical decimal string ("-1234.5"). */
+  valueAsString: string | null;
   /** Caret position in `text` matching the caret position in the raw text. */
   caret: number;
 }
@@ -161,16 +167,35 @@ export function sanitizeNumberText(
     (hasDecimal ? decimalDelimiter + fracDigits : '');
 
   let value: number | null = null;
+  let valueAsString: string | null = null;
   if (strippedInt !== '' || fracDigits !== '') {
-    value = Number(
+    valueAsString = normalizeDecimal(
       `${negative ? '-' : ''}${strippedInt || '0'}.${fracDigits || '0'}`
     );
+    value = Number(valueAsString);
     if (value === 0) {
       value = 0; // avoid -0
     }
   }
 
-  return { text, value, caret: Math.max(0, Math.min(caretOut, text.length)) };
+  return {
+    text,
+    value,
+    valueAsString,
+    caret: Math.max(0, Math.min(caretOut, text.length)),
+  };
+}
+
+/**
+ * Same as `parseNumber`, but returns the exact decimal string
+ * ("12345678901234567.89") instead of a binary float.
+ */
+export function parseDecimal(text: string, locale?: string): string | null {
+  const { decimal, group } = getSeparators(locale);
+  return sanitizeNumberText(String(text ?? ''), {
+    decimalDelimiter: decimal,
+    groupDelimiter: group,
+  }).valueAsString;
 }
 
 /**

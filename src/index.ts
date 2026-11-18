@@ -11,8 +11,12 @@ export type {
   IconRenderer,
   IconRenderProps,
   NumberInputFormat,
+  NumberInputError,
   NumberInputHandle,
   NumberInputProps,
+  NumberInputValueDetails,
+  PasteRejection,
+  RoundingMode,
   UseNumberInputProps,
   NumericLike,
   SpinDirection,
@@ -27,6 +31,7 @@ export {
   formatNumber,
   groupIntegerDigits,
   groupNumberText,
+  parseDecimal,
   parseNumber,
   roundTo,
   sanitizeNumberText,
@@ -51,3 +56,14 @@ export {
   getCurrencyInfo,
 } from './utils/currency';
 export type { CurrencyDisplay, CurrencyInfo } from './utils/currency';
+
+export {
+  addDecimal,
+  compareDecimal,
+  normalizeDecimal,
+  numberToDecimal,
+  roundDecimal,
+} from './utils/decimal';
+
+export { interpretPastedNumber } from './utils/paste';
+export type { PasteInterpretation } from './utils/paste';

@@ -16,7 +16,7 @@
   ],
   "license": "MIT",
   "author": "Rakotonirina José <rakotonirinamailaka@gmain.com>",
-  "homepage": "https://github.com/josemailaka/react-locale-number-input#readme",
+  "homepage": "https://josemailaka.github.io/react-locale-number-input/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/josemailaka/react-locale-number-input.git"
@@ -59,6 +59,7 @@
   },
   "scripts": {
     "dev": "vite --config demo/vite.config.ts",
+    "build:demo": "vite build --config demo/vite.config.ts --outDir ../demo-dist --emptyOutDir",
     "clean": "node scripts/clean.mjs",
     "build": "npm run clean && npm run build:js && npm run build:css",
     "build:js": "tsup",

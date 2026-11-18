@@ -89,9 +89,9 @@ describe('sanitizeNumberText', () => {
   });
 
   it('removes useless leading zeros and maps the caret', () => {
-    expect(sanitizeNumberText('05', EN, 2)).toEqual({ text: '5', value: 5, caret: 1 });
+    expect(sanitizeNumberText('05', EN, 2)).toEqual({ text: '5', value: 5, valueAsString: '5', caret: 1 });
     expect(sanitizeNumberText('0.5', EN).text).toBe('0.5');
-    expect(sanitizeNumberText('1x23', EN, 2)).toEqual({ text: '123', value: 123, caret: 1 });
+    expect(sanitizeNumberText('1x23', EN, 2)).toEqual({ text: '123', value: 123, valueAsString: '123', caret: 1 });
   });
 
   it('never returns -0', () => {
@@ -161,9 +161,11 @@ describe('currency', () => {
   });
 
   it('returns symbol and position', () => {
-    expect(getCurrencyInfo('en-US')).toEqual({ symbol: '$', position: 'start' });
-    expect(getCurrencyInfo('fr-FR')).toEqual({ symbol: '€', position: 'end' });
-    expect(getCurrencyInfo('en-US', 'EUR')).toEqual({ symbol: '€', position: 'start' });
+    expect(getCurrencyInfo('en-US')).toEqual({ code: 'USD', symbol: '$', position: 'start', digits: 2 });
+    expect(getCurrencyInfo('fr-FR')).toEqual({ code: 'EUR', symbol: '€', position: 'end', digits: 2 });
+    expect(getCurrencyInfo('en-US', 'EUR')).toMatchObject({ symbol: '€', position: 'start' });
+    expect(getCurrencyInfo('ja-JP', 'JPY')?.digits).toBe(0);
+    expect(getCurrencyInfo('ar-KW', 'KWD')?.digits).toBe(3);
     expect(getCurrencyInfo('en-US', 'EUR', 'code')?.symbol).toBe('EUR');
   });
 

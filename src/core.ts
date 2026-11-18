@@ -1,21 +1,29 @@
 /**
  * Pure logic shared by `useNumberInput` and `NumberInput`.
+ *
+ * Values are handled as exact canonical decimal strings ("-1234.5"), so that
+ * amounts never go through binary floats. JS numbers are only produced at the
+ * edges (`onChange`, `getValue()`, `stepFn`).
  */
 import type {
+  NumberInputError,
   NumberInputProps,
   NumericLike,
   SpinDirection,
   StepConfig,
 } from './types';
 import { getSeparators, normalizeLocale } from './utils/locale';
-import {
-  addExact,
-  formatNumber,
-  parseNumber,
-  roundTo,
-  sanitizeNumberText,
-} from './utils/number';
+import { formatNumber, parseDecimal, sanitizeNumberText } from './utils/number';
 import { getCurrencyInfo } from './utils/currency';
+import type { CurrencyInfo } from './utils/currency';
+import {
+  addDecimal,
+  compareDecimal,
+  negateDecimal,
+  normalizeDecimal,
+  numberToDecimal,
+  roundDecimal,
+} from './utils/decimal';
 
 export const DEFAULTS = {
   rootClassName: 'locale-number-input',
@@ -37,6 +45,7 @@ export const DEFAULTS = {
   theme: 'default-light',
   format: 'number',
   currencyDisplay: 'symbol',
+  currencySign: 'standard',
   enableSpinnerTools: true,
   enableClearButton: true,
   acceptClearToolFocus: false,
@@ -46,48 +55,98 @@ export const DEFAULTS = {
   clearButtonLabel: 'Clear value',
   selectAllOnFocus: false,
   groupWhileEditing: true,
+  roundingMode: 'halfCeil',
+  clampBehavior: 'clamp',
+  pasteMode: 'lenient',
+  required: false,
 } as const satisfies Partial<NumberInputProps>;
+
+/** Defaults applied by the `preset` prop (explicit props still win). */
+export const PRESETS = {
+  amount: {
+    enableSpinnerTools: false,
+    stepOnWheel: false,
+    spinOnArrowKeys: false,
+    allowNegative: false,
+    precision: 'auto',
+    clampBehavior: 'validate',
+    roundingMode: 'halfExpand',
+    pasteMode: 'strict',
+  },
+} as const satisfies Record<string, Partial<NumberInputProps>>;
 
 export type ResolvedProps = Omit<NumberInputProps, keyof typeof DEFAULTS> &
   Required<Pick<NumberInputProps, keyof typeof DEFAULTS>> & {
     /** Validated locale (`undefined` = runtime default) */
     resolvedLocale: string | undefined;
+    /** `precision` with "auto" resolved */
+    resolvedPrecision: number | undefined;
+    /** Currency information when `format="currency"` */
+    currencyInfo: CurrencyInfo | undefined;
   };
 
 export interface NumberInputState {
-  /** Value of an uncontrolled input */
-  value: number | null;
+  /** Value of an uncontrolled input (canonical decimal string) */
+  value: string | null;
   /** Text being edited, `null` when the displayed text derives from the value */
   draft: string | null;
   focused: boolean;
+  /** The field lost the focus at least once */
+  touched: boolean;
   spinDirection: SpinDirection | null;
   /** Value displayed while a spinner arrow is held */
-  spinValue: number | null | undefined;
+  spinValue: string | null | undefined;
 }
 
-export const sameNumber = (a: number | null, b: number | null) =>
-  a === b || (a !== null && b !== null && Number.isNaN(a) && Number.isNaN(b));
-
-export function toNumber(value: NumericLike | undefined, locale?: string): number | null {
+/** Converts a value prop (number or string) to a canonical decimal string. */
+export function toDecimal(value: NumericLike | undefined, locale?: string): string | null {
   if (value == null || value === '') {
     return null;
   }
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null;
+    return numberToDecimal(value);
   }
-  const asNumber = Number(value);
-  return Number.isFinite(asNumber) ? asNumber : parseNumber(value, locale);
+  return normalizeDecimal(value) ?? parseDecimal(value, locale);
 }
 
-/** Merges the defaults with the given props (`undefined` props are ignored). */
+export const decimalToNumber = (value: string | null): number | null => {
+  if (value == null) {
+    return null;
+  }
+  const result = Number(value);
+  return result === 0 ? 0 : result;
+};
+
+/** Merges the defaults, the preset and the given props (`undefined` props are ignored). */
 export function resolveProps(props: NumberInputProps): ResolvedProps {
-  const resolved: Record<string, unknown> = { ...DEFAULTS };
+  const resolved: Record<string, unknown> = {
+    ...DEFAULTS,
+    ...(props.preset ? PRESETS[props.preset] : undefined),
+  };
   for (const key of Object.keys(props) as Array<keyof NumberInputProps>) {
     if (props[key] !== undefined) {
       resolved[key] = props[key];
     }
   }
-  resolved.resolvedLocale = normalizeLocale(props.locale);
+  const locale = normalizeLocale(props.locale);
+  const currencyInfo =
+    resolved.format === 'currency'
+      ? getCurrencyInfo(
+          locale,
+          props.currency,
+          resolved.currencyDisplay as NonNullable<NumberInputProps['currencyDisplay']>
+        )
+      : undefined;
+  const precision = resolved.precision as NumberInputProps['precision'];
+
+  resolved.resolvedLocale = locale;
+  resolved.currencyInfo = currencyInfo;
+  resolved.resolvedPrecision =
+    precision === 'auto'
+      ? (currencyInfo?.digits ?? 2)
+      : precision == null
+        ? undefined
+        : Math.min(20, Math.max(0, Math.floor(precision)));
   return resolved as ResolvedProps;
 }
 
@@ -98,39 +157,66 @@ export function getCurrentValue(
   props: NumberInputProps,
   state: NumberInputState,
   p: ResolvedProps
-): number | null {
-  return isControlled(props) ? toNumber(props.value, p.resolvedLocale) : state.value;
+): string | null {
+  return isControlled(props) ? toDecimal(props.value, p.resolvedLocale) : state.value;
 }
 
 export function getBounds(p: ResolvedProps) {
-  let min = toNumber(p.minValue, p.resolvedLocale);
-  const max = toNumber(p.maxValue, p.resolvedLocale);
-  if (!p.allowNegative) {
-    min = Math.max(min ?? 0, 0);
+  let min = toDecimal(p.minValue ?? null, p.resolvedLocale);
+  const max = toDecimal(p.maxValue ?? null, p.resolvedLocale);
+  if (!p.allowNegative && (min == null || compareDecimal(min, '0') < 0)) {
+    min = '0';
   }
   return { min, max };
 }
 
-/** Applies precision / integer / min / max rules. */
-export function normalize(value: number | null, p: ResolvedProps): number | null {
-  if (value == null || Number.isNaN(value)) {
+/** Applies integer / precision rules and, when `clamp` is true, min / max. */
+export function normalize(
+  value: string | null,
+  p: ResolvedProps,
+  clamp = true
+): string | null {
+  if (value == null) {
     return null;
   }
   let result = value;
   if (!p.allowFloat) {
-    result = Math.round(result);
+    result = roundDecimal(result, 0, p.roundingMode);
   }
-  if (p.precision != null) {
-    result = roundTo(result, p.precision);
+  if (p.resolvedPrecision != null) {
+    result = roundDecimal(result, p.resolvedPrecision, p.roundingMode);
   }
+  if (clamp) {
+    const { min, max } = getBounds(p);
+    if (min != null && compareDecimal(result, min) < 0) {
+      result = min;
+    }
+    if (max != null && compareDecimal(result, max) > 0) {
+      result = max;
+    }
+  }
+  return normalizeDecimal(result);
+}
+
+export function isOutOfRange(value: string, p: ResolvedProps): 'min' | 'max' | null {
   const { min, max } = getBounds(p);
-  if (min != null && result < min) {
-    result = min;
+  if (min != null && compareDecimal(value, min) < 0) {
+    return 'min';
   }
-  if (max != null && result > max) {
-    result = max;
+  if (max != null && compareDecimal(value, max) > 0) {
+    return 'max';
   }
-  return result === 0 ? 0 : result;
+  return null;
+}
+
+/** Validation error of a value. */
+export function getError(value: string | null, p: ResolvedProps): NumberInputError | null {
+  if (value == null) {
+    const requiredValue =
+      p.required || (p.clampBehavior === 'validate' && !p.allowEmpty);
+    return requiredValue ? 'required' : null;
+  }
+  return isOutOfRange(value, p);
 }
 
 export function sanitize(raw: string, caret: number | undefined, p: ResolvedProps) {
@@ -142,40 +228,47 @@ export function sanitize(raw: string, caret: number | undefined, p: ResolvedProp
       groupDelimiter: group,
       allowNegative: p.allowNegative,
       allowFloat: p.allowFloat,
-      precision: p.precision,
+      precision: p.resolvedPrecision,
     },
     caret
   );
 }
 
-export function parseDraft(draft: string, p: ResolvedProps): number | null {
-  return sanitize(draft, undefined, p).value;
+export function parseDraft(draft: string, p: ResolvedProps): string | null {
+  return sanitize(draft, undefined, p).valueAsString;
 }
 
 /** Next value when stepping from `base`. */
 export function computeStep(
-  base: number | null,
+  base: string | null,
   direction: SpinDirection,
   config: StepConfig,
   p: ResolvedProps
-): number | null {
+): string | null {
   const { min, max } = getBounds(p);
   const stepSize = config.step ?? (config.shiftKey ? p.shiftStep : p.step);
 
-  let next: number | null;
+  let next: string | null;
   if (p.stepFn) {
-    next = p.stepFn(base, direction, {
+    const result = p.stepFn(decimalToNumber(base), direction, {
       step: stepSize,
       shiftKey: !!config.shiftKey,
-      min,
-      max,
+      min: decimalToNumber(min),
+      max: decimalToNumber(max),
     });
+    next = result == null ? null : numberToDecimal(result);
   } else if (base == null) {
     next =
-      p.initialStep ??
-      (min != null && min > 0 ? min : max != null && max < 0 ? max : 0);
+      p.initialStep != null
+        ? numberToDecimal(p.initialStep)
+        : min != null && compareDecimal(min, '0') > 0
+          ? min
+          : max != null && compareDecimal(max, '0') < 0
+            ? max
+            : '0';
   } else {
-    next = addExact(base, direction * stepSize);
+    const delta = numberToDecimal(stepSize) ?? '0';
+    next = addDecimal(base, direction === 1 ? delta : negateDecimal(delta));
   }
   return normalize(next, p);
 }
@@ -184,7 +277,7 @@ export function getAffixes(p: ResolvedProps) {
   let { prefix, suffix } = p;
 
   if (p.format === 'currency') {
-    const info = getCurrencyInfo(p.resolvedLocale, p.currency, p.currencyDisplay);
+    const info = p.currencyInfo;
     const symbol = p.currencySymbol ?? info?.symbol;
     const position = p.currencyPosition ?? info?.position ?? 'end';
     if (symbol) {
@@ -201,18 +294,38 @@ export function getAffixes(p: ResolvedProps) {
   return { prefix, suffix };
 }
 
+function roundForDisplay(value: string, p: ResolvedProps): string {
+  return p.resolvedPrecision == null
+    ? value
+    : roundDecimal(value, p.resolvedPrecision, p.roundingMode);
+}
+
 /** Text shown when the field is not focused: grouping + prefix / suffix. */
-export function formatDisplay(value: number, p: ResolvedProps): string {
+export function formatDisplay(value: string, p: ResolvedProps): string {
   const { prefix, suffix } = getAffixes(p);
-  const text = formatNumber(value, { locale: p.resolvedLocale, precision: p.precision });
+  const rounded = roundForDisplay(value, p);
+  const negative = rounded.startsWith('-');
+
+  if (negative && p.currencySign === 'accounting') {
+    const text = formatNumber(negateDecimal(rounded), {
+      locale: p.resolvedLocale,
+      precision: p.resolvedPrecision,
+    });
+    return `(${[prefix, text, suffix].filter(Boolean).join(' ')})`;
+  }
+
+  const text = formatNumber(rounded, {
+    locale: p.resolvedLocale,
+    precision: p.resolvedPrecision,
+  });
   return [prefix, text, suffix].filter(Boolean).join(' ');
 }
 
 /** Text shown while editing: no prefix / suffix, grouping if `groupWhileEditing`. */
-export function formatEdit(value: number, p: ResolvedProps): string {
-  return formatNumber(value, {
+export function formatEdit(value: string, p: ResolvedProps): string {
+  return formatNumber(roundForDisplay(value, p), {
     locale: p.resolvedLocale,
-    precision: p.precision,
+    precision: p.resolvedPrecision,
     useGrouping: p.numbersOnly && p.groupWhileEditing,
   });
 }

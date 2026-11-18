@@ -160,6 +160,10 @@ const NumberInputComponent = forwardRef<NumberInputHandle, NumberInputProps>(
         userInputProps.onKeyDown?.(event);
         props.onKeyDown?.(event);
       },
+      onPaste: event => {
+        userInputProps.onPaste?.(event);
+        props.onPaste?.(event);
+      },
     });
 
     useImperativeHandle(ref, () => n.api, [n.api]);
@@ -174,6 +178,8 @@ const NumberInputComponent = forwardRef<NumberInputHandle, NumberInputProps>(
       p.disabled && `${root}--disabled`,
       p.readOnly && `${root}--read-only`,
       n.focused && `${root}--focused`,
+      n.invalid && `${root}--invalid`,
+      n.displayValue != null && n.displayValue < 0 && `${root}--negative`,
       p.enableSpinnerTools && `${root}--enable-spinner-tools`,
       p.enableClearButton && `${root}--enable-clear-button`,
       p.className
@@ -186,11 +192,22 @@ const NumberInputComponent = forwardRef<NumberInputHandle, NumberInputProps>(
       onFocus: _onFocus,
       onBlur: _onBlur,
       onKeyDown: _onKeyDown,
+      onPaste: _onPaste,
       className: inputClassName,
       ...restInputProps
     } = userInputProps;
-    const { ref: inputRef, value, onChange, onFocus, onBlur, onKeyDown, disabled, readOnly, ...a11yProps } =
-      n.inputProps;
+    const {
+      ref: inputRef,
+      value,
+      onChange,
+      onFocus,
+      onBlur,
+      onKeyDown,
+      onPaste,
+      disabled,
+      readOnly,
+      ...a11yProps
+    } = n.inputProps;
 
     const input = (
       <input
@@ -215,6 +232,7 @@ const NumberInputComponent = forwardRef<NumberInputHandle, NumberInputProps>(
         onFocus={onFocus}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
+        onPaste={onPaste}
       />
     );
 

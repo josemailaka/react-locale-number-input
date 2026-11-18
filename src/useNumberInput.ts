@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type {
   ChangeEvent,
+  ClipboardEvent,
   FocusEvent,
   KeyboardEvent,
   MouseEvent,
@@ -9,6 +10,7 @@ import type {
 } from 'react';
 
 import type {
+  NumberInputError,
   NumberInputHandle,
   SpinDirection,
   StepConfig,
@@ -16,21 +18,25 @@ import type {
 } from './types';
 import {
   computeStep,
+  decimalToNumber,
   formatDisplay,
   formatEdit,
   getBounds,
   getCurrentValue,
+  getError,
   isControlled,
+  isOutOfRange,
   normalize,
   parseDraft,
   resolveProps,
-  sameNumber,
   sanitize,
-  toNumber,
+  toDecimal,
 } from './core';
-import type { NumberInputState } from './core';
+import type { NumberInputState, ResolvedProps } from './core';
 import { getSeparators } from './utils/locale';
 import { groupNumberText } from './utils/number';
+import { roundDecimal } from './utils/decimal';
+import { interpretPastedNumber } from './utils/paste';
 
 // useLayoutEffect warns during server rendering with React 17 / 18
 const useIsomorphicLayoutEffect =
@@ -44,10 +50,11 @@ interface Instance {
   spinStartTimer: Timer | null;
   spinInterval: ReturnType<typeof setInterval> | null;
   emitTimer: Timer | null;
-  currentSpinValue: number | null | undefined;
-  valueOnFocus: number | null;
+  currentSpinValue: string | null | undefined;
+  valueOnFocus: string | null;
   documentListeners: boolean;
   prevValueProp: UseNumberInputProps['value'];
+  lastError: NumberInputError | null;
 }
 
 export interface NumberInputElementProps {
@@ -65,10 +72,13 @@ export interface NumberInputElementProps {
   'aria-valuemin': number | undefined;
   'aria-valuemax': number | undefined;
   'aria-valuetext': string | undefined;
+  'aria-invalid': true | undefined;
+  'aria-required': true | undefined;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onFocus: (event: FocusEvent<HTMLInputElement>) => void;
   onBlur: (event: FocusEvent<HTMLInputElement>) => void;
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onPaste: (event: ClipboardEvent<HTMLInputElement>) => void;
 }
 
 export interface SpinButtonProps {
@@ -86,12 +96,21 @@ export interface ClearButtonProps {
 export interface UseNumberInputResult {
   /** Committed value (`null` when empty). */
   value: number | null;
+  /** Exact committed value as a decimal string ("1234.5"). */
+  valueAsString: string | null;
   /** Value currently displayed (differs from `value` while spinning). */
   displayValue: number | null;
   /** Text of the input. */
   text: string;
   /** Text shown when not focused (with grouping, prefix, suffix). */
   formattedText: string;
+  /** Validation error of what the field currently holds. */
+  error: NumberInputError | null;
+  /**
+   * `error` as it should be shown: "required" only once the field was
+   * left (touched). Drives `aria-invalid`.
+   */
+  invalid: boolean;
   focused: boolean;
   /** Direction of the spinner arrow being held. */
   spinDirection: SpinDirection | null;
@@ -107,13 +126,41 @@ export interface UseNumberInputResult {
   decrementProps: SpinButtonProps;
   /** Spread on your clear `<button>`. */
   clearButtonProps: ClearButtonProps;
-  /** Spread on an `<input>` when `name` is given (raw value for HTML forms). */
+  /** Spread on an `<input>` when `name` is given (exact raw value for HTML forms). */
   hiddenInputProps: { type: 'hidden'; name: string; value: string } | undefined;
   /** Imperative API (stable object). */
   api: NumberInputHandle;
 }
 
 const preventDefault = (event: MouseEvent<HTMLElement>) => event.preventDefault();
+
+const warned = new Set<string>();
+function warnOnce(message: string) {
+  if (warned.has(message)) {
+    return;
+  }
+  warned.add(message);
+  console.warn(`[react-locale-number-input] ${message}`);
+}
+
+// replaced by bundlers (Vite, webpack, Next.js...); may not exist in a raw browser
+declare const process: { env?: { NODE_ENV?: string } };
+
+const isDevelopment = () => {
+  try {
+    return process.env?.NODE_ENV !== 'production';
+  } catch {
+    return false; // no bundler, no "process": stay quiet
+  }
+};
+
+/** What the field currently holds: the draft being typed, or the value. */
+function getHeldValue(state: NumberInputState, value: string | null, p: ResolvedProps) {
+  if (state.spinValue !== undefined) {
+    return state.spinValue;
+  }
+  return state.draft != null ? parseDraft(state.draft, p) : value;
+}
 
 function createController(
   propsRef: MutableRefObject<UseNumberInputProps>,
@@ -124,8 +171,13 @@ function createController(
   const resolve = () => resolveProps(propsRef.current);
   const controlled = () => isControlled(propsRef.current);
 
-  function getValue(): number | null {
+  function getValue(): string | null {
     return getCurrentValue(propsRef.current, stateRef.current, resolve());
+  }
+
+  function getCurrentError(): NumberInputError | null {
+    const p = resolve();
+    return getError(getHeldValue(stateRef.current, getValue(), p), p);
   }
 
   function isFocused(): boolean {
@@ -140,7 +192,7 @@ function createController(
   const isSpinning = () => inst.spinInterval != null;
 
   /** Value used as starting point for stepping. */
-  function getWorkingValue(): number | null {
+  function getWorkingValue(): string | null {
     if (inst.currentSpinValue !== undefined) {
       return inst.currentSpinValue;
     }
@@ -151,23 +203,34 @@ function createController(
     return getValue();
   }
 
-  /** Stores (uncontrolled) and notifies (`onChange`) a new value. */
-  function emitValue(value: number | null) {
+  /** Stores (uncontrolled) and notifies (`onChange` / `onValueChange`) a new value. */
+  function emitValue(value: string | null) {
     const current = getValue();
-    if (!controlled() && !sameNumber(value, stateRef.current.value)) {
+    if (!controlled() && value !== stateRef.current.value) {
       setState({ value });
     }
-    if (!sameNumber(value, current)) {
-      propsRef.current.onChange?.(value);
+    if (value !== current) {
+      const props = propsRef.current;
+      props.onChange?.(decimalToNumber(value));
+      if (props.onValueChange) {
+        const p = resolve();
+        props.onValueChange({
+          value: decimalToNumber(value),
+          valueAsString: value,
+          formattedValue: value == null ? '' : formatDisplay(value, p),
+          error: getError(value, p),
+        });
+      }
     }
   }
 
   /** Commits a value: normalizes it, handles empty values and clears the draft. */
-  function commit(value: number | null) {
+  function commit(value: string | null) {
     const p = resolve();
-    let next = normalize(value, p);
-    if (next === null && !p.allowEmpty) {
-      next = normalize(toNumber(p.valueOnEmpty, p.resolvedLocale) ?? 0, p);
+    const validate = p.clampBehavior === 'validate';
+    let next = normalize(value, p, !validate);
+    if (next === null && !p.allowEmpty && !validate) {
+      next = normalize(toDecimal(p.valueOnEmpty ?? null, p.resolvedLocale) ?? '0', p);
     }
     setState({ draft: null });
     emitValue(next);
@@ -202,17 +265,16 @@ function createController(
     inst.pendingCaret = nextCaret;
     setState({ draft: text });
 
-    const { value } = result;
+    const value = result.valueAsString;
     if (value === null) {
-      if (p.allowEmpty) {
+      if (p.allowEmpty || p.clampBehavior === 'validate') {
         emitValue(null);
       }
       return;
     }
-    // out of range values are only committed (clamped) on blur / Enter,
-    // so that typing "1" when min is 10 does not jump to 10 immediately
-    const { min, max } = getBounds(p);
-    if ((min != null && value < min) || (max != null && value > max)) {
+    // with "clamp", out of range values are only committed (clamped) on
+    // blur / Enter, so that typing "1" when min is 10 does not jump to 10
+    if (p.clampBehavior !== 'validate' && isOutOfRange(value, p)) {
       return;
     }
     emitValue(value);
@@ -353,7 +415,7 @@ function createController(
       return;
     }
     stopSpin();
-    if (p.allowEmpty) {
+    if (p.allowEmpty || p.clampBehavior === 'validate') {
       commit(null);
     } else {
       // empty text, the fallback value is committed on blur
@@ -399,6 +461,59 @@ function createController(
     applyText(target.value, target.selectionStart ?? target.value.length);
   }
 
+  function handlePaste(event: ClipboardEvent<HTMLInputElement>) {
+    const p = resolve();
+    p.onPaste?.(event);
+    if (event.defaultPrevented || !p.numbersOnly || p.disabled || p.readOnly) {
+      return;
+    }
+    const pasted = event.clipboardData?.getData('text') ?? '';
+    const separators = getSeparators(p.resolvedLocale);
+    const result = interpretPastedNumber(pasted, separators);
+    const strict = p.pasteMode === 'strict';
+    const reject = (reason: 'ambiguous' | 'invalid' | 'negative' | 'decimals') => {
+      event.preventDefault();
+      p.onPasteRejected?.({ text: pasted, reason });
+    };
+
+    if (result.value == null) {
+      // nothing numeric: lenient mode keeps the historical behaviour
+      if (strict) {
+        reject('invalid');
+      }
+      return;
+    }
+    // what is inserted: the digits as pasted ("0007", "10.50")
+    let digits = result.digits;
+    const decimals = (result.value.split('.')[1] || '').length;
+    const allowed = !p.allowFloat ? 0 : p.resolvedPrecision;
+    const tooPrecise = allowed != null && decimals > allowed;
+
+    if (strict) {
+      if (result.ambiguous) {
+        return reject('ambiguous');
+      }
+      if (result.negative && !p.allowNegative) {
+        return reject('negative');
+      }
+      if (tooPrecise) {
+        return reject('decimals');
+      }
+    } else if (tooPrecise) {
+      // more decimals than allowed: round instead of truncating / gluing digits
+      digits = roundDecimal(result.value, allowed, p.roundingMode);
+    }
+
+    // insert the interpreted value (with the locale decimal) in place of the selection
+    event.preventDefault();
+    const input = event.currentTarget;
+    const text = input.value;
+    const start = input.selectionStart ?? text.length;
+    const end = input.selectionEnd ?? start;
+    const inserted = digits.replace('.', separators.decimal);
+    applyText(text.slice(0, start) + inserted + text.slice(end), start + inserted.length);
+  }
+
   function handleFocus(event: FocusEvent<HTMLInputElement>) {
     inst.valueOnFocus = getValue();
     setState({ focused: true });
@@ -420,7 +535,7 @@ function createController(
       stopSpin();
     }
     commitDraft();
-    setState({ focused: false });
+    setState({ focused: false, touched: true });
     propsRef.current.onBlur?.(event);
   }
 
@@ -479,7 +594,7 @@ function createController(
         commitDraft();
         return;
       case 'Escape':
-        if (stateRef.current.draft != null || !sameNumber(getValue(), inst.valueOnFocus)) {
+        if (stateRef.current.draft != null || getValue() !== inst.valueOnFocus) {
           event.preventDefault();
           setState({ draft: null });
           emitValue(inst.valueOnFocus);
@@ -513,7 +628,7 @@ function createController(
     // decimal delimiter: "." and "," are both accepted and converted to the
     // delimiter of the locale; only one delimiter is allowed
     if (key === decimal || key === '.' || key === ',') {
-      if (!p.allowFloat || p.precision === 0) {
+      if (!p.allowFloat || p.resolvedPrecision === 0) {
         return;
       }
       const existing = text.indexOf(decimal);
@@ -560,10 +675,16 @@ function createController(
         controlled() &&
         draft != null &&
         spinValue === undefined &&
-        !sameNumber(parseDraft(draft, resolve()), getValue())
+        parseDraft(draft, resolve()) !== getValue()
       ) {
         setState({ draft: null });
       }
+    }
+
+    const error = getCurrentError();
+    if (error !== inst.lastError) {
+      inst.lastError = error;
+      propsRef.current.onErrorChange?.(error);
     }
   }
 
@@ -580,8 +701,10 @@ function createController(
       return inst.input;
     },
     getInput: () => inst.input,
-    getValue,
-    getNumericValue: getValue,
+    getValue: () => decimalToNumber(getValue()),
+    getNumericValue: () => decimalToNumber(getValue()),
+    getValueAsString: getValue,
+    getError: getCurrentError,
     focus: () => inst.input?.focus(),
     blur: () => inst.input?.blur(),
     isFocused,
@@ -611,6 +734,7 @@ function createController(
     handleFocus,
     handleBlur,
     handleKeyDown,
+    handlePaste,
     afterRender,
     dispose,
   };
@@ -618,8 +742,9 @@ function createController(
 
 /**
  * Headless number input: all the behaviour of `NumberInput` (locale parsing
- * and formatting, grouping while typing, stepping, spinning, clearing...)
- * without any markup. Spread the returned props on your own elements.
+ * and formatting, grouping while typing, stepping, spinning, clearing,
+ * validation...) without any markup. Spread the returned props on your own
+ * elements.
  *
  * ```tsx
  * const n = useNumberInput({ locale: 'fr-FR', defaultValue: 10 });
@@ -630,9 +755,10 @@ function createController(
 export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputResult {
   const p = resolveProps(props);
   const [state, setFullState] = useState<NumberInputState>(() => ({
-    value: toNumber(props.defaultValue, p.resolvedLocale),
+    value: toDecimal(props.defaultValue, p.resolvedLocale),
     draft: null,
     focused: false,
+    touched: false,
     spinDirection: null,
     spinValue: undefined,
   }));
@@ -654,6 +780,7 @@ export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputR
         valueOnFocus: null,
         documentListeners: false,
         prevValueProp: props.value,
+        lastError: null,
       },
       partial => setFullState(current => ({ ...current, ...partial }))
     )
@@ -666,6 +793,26 @@ export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputR
   });
 
   useEffect(() => () => controller.dispose(), [controller]);
+
+  // money without an explicit locale depends on the browser language
+  const needsLocale = props.preset === 'amount' || p.format === 'currency';
+  useEffect(() => {
+    if (!needsLocale || !isDevelopment()) {
+      return;
+    }
+    if (!props.locale) {
+      warnOnce(
+        'Amount / currency input without `locale`: the browser language is used, so ' +
+          'separators and currency change from one user to another. Set `locale` explicitly.'
+      );
+    }
+    if (p.format === 'currency' && !props.currency) {
+      warnOnce(
+        '`format="currency"` without `currency`: the currency is guessed from the locale ' +
+          'region. Set `currency` (e.g. "EUR") explicitly.'
+      );
+    }
+  }, [needsLocale, props.locale, props.currency, p.format]);
 
   // ----------------------------------------------------- derived values
   const value = getCurrentValue(props, state, p);
@@ -683,17 +830,22 @@ export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputR
   const formattedText = displayValue == null ? '' : formatDisplay(displayValue, p);
   const hasValue = state.draft != null ? state.draft !== '' : displayValue != null;
   const { min, max } = getBounds(p);
+  const error = getError(getHeldValue(state, value, p), p);
+  const invalid = error != null && (error !== 'required' || state.touched);
 
   return {
-    value,
-    displayValue,
+    value: decimalToNumber(value),
+    valueAsString: value,
+    displayValue: decimalToNumber(displayValue),
     text,
     formattedText,
+    error,
+    invalid,
     focused: state.focused,
     spinDirection: state.spinDirection,
     hasValue,
-    min,
-    max,
+    min: decimalToNumber(min),
+    max: decimalToNumber(max),
     inputProps: {
       ref: controller.setInputRef,
       type: 'text',
@@ -701,7 +853,7 @@ export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputR
       role: 'spinbutton',
       inputMode: p.allowNegative
         ? 'text'
-        : p.allowFloat && p.precision !== 0
+        : p.allowFloat && p.resolvedPrecision !== 0
           ? 'decimal'
           : 'numeric',
       autoComplete: 'off',
@@ -709,14 +861,17 @@ export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputR
       spellCheck: false,
       disabled: p.disabled,
       readOnly: p.readOnly,
-      'aria-valuenow': displayValue ?? undefined,
-      'aria-valuemin': min ?? undefined,
-      'aria-valuemax': max ?? undefined,
+      'aria-valuenow': decimalToNumber(displayValue) ?? undefined,
+      'aria-valuemin': decimalToNumber(min) ?? undefined,
+      'aria-valuemax': decimalToNumber(max) ?? undefined,
       'aria-valuetext': formattedText || undefined,
+      'aria-invalid': invalid ? true : undefined,
+      'aria-required': p.required ? true : undefined,
       onChange: controller.handleChange,
       onFocus: controller.handleFocus,
       onBlur: controller.handleBlur,
       onKeyDown: controller.handleKeyDown,
+      onPaste: controller.handlePaste,
     },
     incrementProps: controller.spinUp,
     decrementProps: controller.spinDown,
@@ -727,7 +882,7 @@ export function useNumberInput(props: UseNumberInputProps = {}): UseNumberInputR
       disabled: !hasValue || !!p.disabled || !!p.readOnly,
     },
     hiddenInputProps: p.name
-      ? { type: 'hidden', name: p.name, value: value == null ? '' : String(value) }
+      ? { type: 'hidden', name: p.name, value: value ?? '' }
       : undefined,
     api: controller.api,
   };

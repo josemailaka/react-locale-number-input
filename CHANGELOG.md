@@ -1,5 +1,48 @@
 # Changelog
 
+## 2.1.0: money and finance
+
+All the new behaviours are opt-in: without the new props, typing, stepping and display are unchanged
+(verified against 2.0.0 with 8,000+ random interactions). Only pasting changes; see "Fixed" below.
+
+### New
+
+- **Exact decimal values.** Values are handled internally as decimal strings with BigInt, never as
+  binary floats.
+  - New `onValueChange({ value, valueAsString, formattedValue, error })`.
+  - New `getValueAsString()` on the ref, and `valueAsString` in `useNumberInput()`.
+  - `value` / `defaultValue` accept exact strings (`"12345678901234567.89"`).
+  - The hidden form input now holds the exact value.
+- **Validation instead of silent clamping**: `clampBehavior="validate"` keeps an out-of-range amount
+  and reports it.
+  - `error` (`"min"`, `"max"`, `"required"`), `onErrorChange`, `getError()`.
+  - `aria-invalid`, the `--invalid` CSS class, and the `required` prop with `aria-required`.
+- **`precision="auto"`**: decimals of the currency (EUR 2, JPY 0, KWD 3). `getCurrencyInfo()` now
+  also returns `code` and `digits`.
+- **`preset="amount"`**: safe defaults for money. Spinner, wheel and arrow keys are off, negative
+  values are refused, and it applies `precision="auto"`, `clampBehavior="validate"`,
+  `roundingMode="halfExpand"` and `pasteMode="strict"`.
+- **`roundingMode`**: `halfCeil` (default, unchanged), `halfExpand`, `halfEven` (banker's),
+  `halfFloor`, `halfTrunc`, `trunc`, `expand`, `ceil`, `floor`.
+- **`pasteMode="strict"`** with `onPasteRejected({ text, reason })`. Ambiguous (`1,234`), invalid,
+  negative or too precise pasted texts are rejected.
+- **`currencySign="accounting"`**: negative amounts in parentheses, `(1,234.50 €)`. A `--negative`
+  CSS class is set for negative values.
+- **Development warning** when an amount or currency field has no explicit `locale` / `currency`.
+- New helpers: `parseDecimal`, `normalizeDecimal`, `numberToDecimal`, `addDecimal`, `compareDecimal`,
+  `roundDecimal`, `interpretPastedNumber`.
+
+### Fixed: pasting
+
+| Pasted text | Locale | 2.0.0 | 2.1.0 |
+| --- | --- | --- | --- |
+| `1.234.567,89` | en-US | 1.23456789 | 1234567.89 |
+| `$1,234.50` | de-DE | 1.2345 | 1234.5 |
+| `1 234,5` | en-US | 12345 | 1234.5 |
+| `1.239` | integer field | 1239 | 1 |
+| `1.239` | precision 2 | 1.23 (truncated) | 1.24 (rounded with `roundingMode`) |
+| `(1,234.50)` (accounting) | en-US | 1234.5 (sign lost) | -1234.5 |
+
 ## 2.0.0
 
 ### New
