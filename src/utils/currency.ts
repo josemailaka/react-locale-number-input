@@ -75,7 +75,7 @@ function computeCurrencyInfo(
 }
 
 /**
- * Kept for backward compatibility with the original Inovua implementation:
+ * Legacy helper:
  * returns the currency symbol for the region of the given locale.
  */
 export function getCurrencyForCountryCode(

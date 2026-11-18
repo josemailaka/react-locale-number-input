@@ -263,7 +263,7 @@ describe('stepping', () => {
       const { container } = render(
         <NumberInput locale="en-US" defaultValue={0} onChange={onChange} stepDelay={50} triggerChangeOnSpin={false} />
       );
-      const up = container.querySelector('.inovua-react-toolkit-numeric-input__spinner-arrow--up')!;
+      const up = container.querySelector('.locale-number-input__spinner-arrow--up')!;
 
       fireEvent.pointerDown(up, { button: 0 });
       expect(onChange).toHaveBeenLastCalledWith(1);
@@ -284,7 +284,7 @@ describe('stepping', () => {
       const { container } = render(
         <NumberInput locale="en-US" defaultValue={0} onChange={onChange} stepDelay={50} triggerChangeOnSpinDelay={0} />
       );
-      const down = container.querySelector('.inovua-react-toolkit-numeric-input__spinner-arrow--down')!;
+      const down = container.querySelector('.locale-number-input__spinner-arrow--down')!;
       fireEvent.pointerDown(down, { button: 0 });
       act(() => vi.advanceTimersByTime(300 + 50 * 2));
       expect(onChange.mock.calls.map(c => c[0])).toEqual([-1, -2, -3]);
@@ -307,7 +307,7 @@ describe('clear button', () => {
   it('is hidden without value', () => {
     const { container } = setup();
     expect(
-      container.querySelector('.inovua-react-toolkit-numeric-input__clear-button-wrapper--hidden')
+      container.querySelector('.locale-number-input__clear-button-wrapper--hidden')
     ).not.toBeNull();
   });
 });
@@ -362,6 +362,6 @@ describe('forms and ref API', () => {
     await user.type(input, '1');
     expect(onClick).toHaveBeenCalled();
     expect(onKeyUp).toHaveBeenCalled();
-    expect(container.firstElementChild).toHaveClass('extra', 'inovua-react-toolkit-numeric-input--theme-default-light');
+    expect(container.firstElementChild).toHaveClass('extra', 'locale-number-input--theme-default-light');
   });
 });

@@ -1,8 +1,5 @@
 /**
  * Locale aware numeric input.
- *
- * Based on the NumericInput of @inovua/reactdatagrid-community
- * (Copyright © INOVUA TRADING, MIT license), rewritten in TypeScript.
  */
 
 import { Component } from 'react';
@@ -33,7 +30,7 @@ import {
 import { getCurrencyInfo } from './utils/currency';
 
 const DEFAULTS = {
-  rootClassName: 'inovua-react-toolkit-numeric-input',
+  rootClassName: 'locale-number-input',
   spinOnArrowKeys: true,
   numbersOnly: true,
   step: 1,

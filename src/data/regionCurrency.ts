@@ -1,9 +1,7 @@
 /**
  * ISO 3166-1 alpha-2 region code -> ISO 4217 currency code.
  *
- * Derived from the country / currency tables of the original Inovua
- * NumericInput, completed with the regions that were missing there and
- * updated for currency changes (HRK -> EUR, BGN -> EUR, BYR -> BYN, ...).
+ * Kept up to date with currency changes (HRK -> EUR, BGN -> EUR, BYR -> BYN, ...).
  */
 export const REGION_CURRENCY: Readonly<Record<string, string>> = {
   AD: 'EUR', AE: 'AED', AF: 'AFN', AG: 'XCD', AI: 'XCD', AL: 'ALL', AM: 'AMD',

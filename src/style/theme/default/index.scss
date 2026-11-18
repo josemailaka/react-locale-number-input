@@ -1,91 +1,84 @@
-/**
- * Copyright © INOVUA TRADING.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 @import './variables.scss';
 
-.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}--theme-#{$INOVUA_NUMERIC_INPUT_THEME_NAME} {
-  font-size: $INOVUA_NUMERIC_FONT_SIZE;
-  fill: $INOVUA_NUMERIC_ICON_FILL;
-  border: $INOVUA_NUMERIC_BORDER;
-  background: $INOVUA_NUMERIC_INPUT_BG_COLOR;
-  min-height: $INOVUA_NUMERIC_INPUT_MIN_HEIGHT;
-  border-radius: $INOVUA_NUMERIC_INPUT_BORDER_RADIUS;
+.#{$NUMBER_INPUT_ROOT_CLASS}.#{$NUMBER_INPUT_ROOT_CLASS}--theme-#{$NUMBER_INPUT_THEME_NAME} {
+  font-size: $NUMBER_INPUT_FONT_SIZE;
+  fill: $NUMBER_INPUT_ICON_FILL;
+  border: $NUMBER_INPUT_BORDER;
+  background: $NUMBER_INPUT_BG_COLOR;
+  min-height: $NUMBER_INPUT_MIN_HEIGHT;
+  border-radius: $NUMBER_INPUT_BORDER_RADIUS;
   transition: all 0.2s;
   position: relative;
 
   &:hover {
-    border: $INOVUA_NUMERIC_BORDER_HOVER;
+    border: $NUMBER_INPUT_BORDER_HOVER;
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__input {
-    color: $INOVUA_NUMERIC_FONT_COLOR;
-    font-size: $INOVUA_NUMERIC_FONT_SIZE;
+  .#{$NUMBER_INPUT_ROOT_CLASS}__input {
+    color: $NUMBER_INPUT_FONT_COLOR;
+    font-size: $NUMBER_INPUT_FONT_SIZE;
 
     &::placeholder {
-      color: $INOVUA_NUMERIC_INPUT_PLACEHOLDER_COLOR;
+      color: $NUMBER_INPUT_PLACEHOLDER_COLOR;
     }
   }
 
-  &.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}--disabled {
-    fill: $INOVUA_NUMERIC_DISABLED_ICON_FILL;
+  &.#{$NUMBER_INPUT_ROOT_CLASS}--disabled {
+    fill: $NUMBER_INPUT_DISABLED_ICON_FILL;
     opacity: 0.5;
   }
 
-  &.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}--focused {
-    border: $INOVUA_NUMERIC_BORDER_FOCUSED;
-    box-shadow: $INOVUA_NUMERIC_BOX_SHADOW;
+  &.#{$NUMBER_INPUT_ROOT_CLASS}--focused {
+    border: $NUMBER_INPUT_BORDER_FOCUSED;
+    box-shadow: $NUMBER_INPUT_BOX_SHADOW;
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__clear-button-wrapper {
+  .#{$NUMBER_INPUT_ROOT_CLASS}__clear-button-wrapper {
     margin-left: 6px;
-    .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__clear-button {
-      stroke: $INOVUA_NUMERIC_ICON_FILL;
+    .#{$NUMBER_INPUT_ROOT_CLASS}__clear-button {
+      stroke: $NUMBER_INPUT_ICON_FILL;
 
       &:hover {
-        stroke: $INOVUA_NUMERIC_ICON_FILL_ACTIVE;
+        stroke: $NUMBER_INPUT_ICON_FILL_ACTIVE;
       }
 
       &:focus {
-        outline: $INOVUA_NUMERIC_FOCUS_BORDER;
+        outline: $NUMBER_INPUT_FOCUS_BORDER;
       }
     }
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-wrapper {
-    width: $INOVUA_NUMERIC_INPUT_ARROW_WIDTH;
-    height: $INOVUA_NUMERIC_INPUT_ARROW_HEIGHT;
+  .#{$NUMBER_INPUT_ROOT_CLASS}__spinner-wrapper {
+    width: $NUMBER_INPUT_ARROW_WIDTH;
+    height: $NUMBER_INPUT_ARROW_HEIGHT;
 
-    &.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-wrapper--ltr {
-      margin: $INOVUA_NUMERIC_SPINNER_MARGIN;
+    &.#{$NUMBER_INPUT_ROOT_CLASS}__spinner-wrapper--ltr {
+      margin: $NUMBER_INPUT_SPINNER_MARGIN;
     }
 
-    &.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-wrapper--rtl {
-      margin: $INOVUA_NUMERIC_SPINNER_MARGIN_RTL;
+    &.#{$NUMBER_INPUT_ROOT_CLASS}__spinner-wrapper--rtl {
+      margin: $NUMBER_INPUT_SPINNER_MARGIN_RTL;
     }
 
-    min-height: $INOVUA_NUMERIC_INPUT_TOOL_DIMENSION;
+    min-height: $NUMBER_INPUT_TOOL_DIMENSION;
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-wrapper-hidden {
-    &.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-wrapper-hidden--ltr {
-      margin: $INOVUA_NUMERIC_SPINNER_MARGIN_HIDDEN;
+  .#{$NUMBER_INPUT_ROOT_CLASS}__spinner-wrapper-hidden {
+    &.#{$NUMBER_INPUT_ROOT_CLASS}__spinner-wrapper-hidden--ltr {
+      margin: $NUMBER_INPUT_SPINNER_MARGIN_HIDDEN;
     }
 
-    &.#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-wrapper-hidden--rtl {
-      margin: $INOVUA_NUMERIC_SPINNER_MARGIN_HIDDEN_RTL;
+    &.#{$NUMBER_INPUT_ROOT_CLASS}__spinner-wrapper-hidden--rtl {
+      margin: $NUMBER_INPUT_SPINNER_MARGIN_HIDDEN_RTL;
     }
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__input {
-    min-height: $INOVUA_NUMERIC_INPUT_MIN_HEIGHT;
-    margin: $INOVUA_NUMERIC_INPUT_MARGIN;
+  .#{$NUMBER_INPUT_ROOT_CLASS}__input {
+    min-height: $NUMBER_INPUT_MIN_HEIGHT;
+    margin: $NUMBER_INPUT_MARGIN;
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-arrow {
+  .#{$NUMBER_INPUT_ROOT_CLASS}__spinner-arrow {
     padding: 0 6px;
 
     svg {
@@ -94,19 +87,19 @@
     }
   }
 
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-arrow--up,
-  .#{$INOVUA_NUMERIC_INPUT_ROOT_CLASS}__spinner-arrow--down {
+  .#{$NUMBER_INPUT_ROOT_CLASS}__spinner-arrow--up,
+  .#{$NUMBER_INPUT_ROOT_CLASS}__spinner-arrow--down {
     &:hover {
-      background: $INOVUA_NUMERIC_INPUT_ARROW_HOVER;
-      fill: $INOVUA_NUMERIC_ICON_FILL_ACTIVE;
+      background: $NUMBER_INPUT_ARROW_HOVER;
+      fill: $NUMBER_INPUT_ICON_FILL_ACTIVE;
     }
 
     &:active {
-      background: $INOVUA_NUMERIC_INPUT_ARROW_ACTIVE;
-      fill: $INOVUA_NUMERIC_ICON_FILL_ACTIVE;
+      background: $NUMBER_INPUT_ARROW_ACTIVE;
+      fill: $NUMBER_INPUT_ICON_FILL_ACTIVE;
 
       svg {
-        transform: $INVOVUA_NUMERIC_INPUT_ARROW_ACTION;
+        transform: $NUMBER_INPUT_ARROW_ACTION;
       }
     }
   }

@@ -12,9 +12,6 @@ Locale-aware number input for React, written in TypeScript.
 - Pasted text is parsed (`$ 1,234.50` → `1234.5`) and a hidden input keeps the raw value for HTML forms
 - Works with React 17, 18 and 19, ships ESM and CJS builds plus TypeScript types, and is marked `"use client"` for Next.js
 
-Based on the `NumericInput` of
-[@inovua/reactdatagrid-community](https://github.com/inovua/reactdatagrid) (MIT).
-
 ## Installation
 
 ```bash
@@ -177,4 +174,4 @@ npm run verify       # everything + publint + arethetypeswrong
 
 ## License
 
-MIT. Copyright © INOVUA TRADING (original NumericInput) and the contributors of this package.
+MIT, see [LICENSE](LICENSE).
